@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -20,6 +21,7 @@ const (
 var (
 	downloaded map[string]bool = make(map[string]bool)
 	lockx                      = make(chan int, 1)
+	imgDir     string
 )
 
 func addDownloadImgUrl(url string) {
@@ -54,7 +56,7 @@ func downImg(url string, chann chan int) {
 		return
 	}
 
-	if resp.ContentLength < 50000 {
+	if resp.ContentLength < 10000 {
 		delay.Stop()
 		chann <- 1
 		resp.Body.Close()
@@ -67,9 +69,15 @@ func downImg(url string, chann chan int) {
 		chann <- 1
 		return
 	}
-	ioutil.WriteFile(getName(url), body, 0644)
+
+	fmt.Println(len(body))
+
+	f, _ := os.Create("./img/" + getName(url))
+	f.Write(body)
+	f.Close()
 	fmt.Println("----", resp.Request.URL)
 	delay.Stop()
+
 	addDownloadImgUrl(url)
 	resp.Body.Close()
 	chann <- 1
@@ -112,7 +120,7 @@ type ExampleExtender struct {
 
 func (this *ExampleExtender) Visit(ctx *gocrawl.URLContext, res *http.Response, doc *goquery.Document) (interface{}, bool) {
 	fmt.Println("visit url: ", ctx.URL(), "state: ", ctx.State)
-	parsingImgUrl(res)
+	go parsingImgUrl(res)
 	urls := processLinks(doc)
 	links := make(map[*url.URL]interface{})
 	i, _ := ctx.State.(int)
@@ -127,7 +135,6 @@ func (this *ExampleExtender) Visit(ctx *gocrawl.URLContext, res *http.Response, 
 }
 
 func (this *ExampleExtender) Filter(ctx *gocrawl.URLContext, isVisited bool) bool {
-	// fmt.Println("filter url: ", ctx.URL(), "state: ", ctx.State, "isVisited: ", isVisited, "ctx.IsRobotsURL(): ", ctx.IsRobotsURL())
 	if ctx.SourceURL() == nil {
 		ctx.State = DEPTH
 		return !isVisited
@@ -161,9 +168,16 @@ func processLinks(doc *goquery.Document) (result []*url.URL) {
 }
 
 func main() {
+	cDIr, _ := filepath.Abs("")
+	imgDir = cDIr + "/img"
+	os.MkdirAll("img", 0755)
+	fmt.Println(os.Args[0])
+	fmt.Println(len(os.Args))
+	// return
 	opts := gocrawl.NewOptions(new(ExampleExtender))
 	opts.CrawlDelay = 0
 	opts.LogFlags = gocrawl.LogNone
+	opts.EnqueueChanBuffer = 10000
 	// opts.MaxVisits = 4
 	c := gocrawl.NewCrawlerWithOptions(opts)
 	c.Run(gocrawl.S{"http://pp.163.com/": DEPTH})
