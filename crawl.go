@@ -46,6 +46,8 @@ func downImg(url string, chann chan int) {
 		return
 	}
 
+	addDownloadImgUrl(url)
+
 	resp, err := http.Get(url)
 	delay := time.AfterFunc(3*time.Second, func() {
 		return
@@ -74,7 +76,6 @@ func downImg(url string, chann chan int) {
 	f.Write(body)
 	fmt.Println("----", resp.Request.URL)
 
-	addDownloadImgUrl(url)
 }
 
 func parsingImgUrl(resp *http.Response) {
