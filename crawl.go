@@ -38,49 +38,43 @@ func getName(url string) string {
 
 func downImg(url string, chann chan int) {
 
+	defer func() {
+		chann <- 1
+	}()
 	if downloaded[url] {
 		fmt.Println("====url: ", url, "已下载")
-		chann <- 1
 		return
 	}
 
 	resp, err := http.Get(url)
 	delay := time.AfterFunc(3*time.Second, func() {
-		chann <- 1
 		return
 	})
+
+	defer delay.Stop()
+
 	if err != nil {
 		fmt.Println("下载图片: ", url, "失败, 原因: ", err.Error())
-		delay.Stop()
-		chann <- 1
 		return
 	}
+	defer resp.Body.Close()
 
 	if resp.ContentLength < 10000 {
-		delay.Stop()
-		chann <- 1
-		resp.Body.Close()
 		return
 	}
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		fmt.Println("读取图片: ", url, "失败, 原因: ", err.Error())
-		delay.Stop()
-		chann <- 1
 		return
 	}
 
-	fmt.Println(len(body))
-
 	f, _ := os.Create("./img/" + getName(url))
+	defer f.Close()
+
 	f.Write(body)
-	f.Close()
 	fmt.Println("----", resp.Request.URL)
-	delay.Stop()
 
 	addDownloadImgUrl(url)
-	resp.Body.Close()
-	chann <- 1
 }
 
 func parsingImgUrl(resp *http.Response) {
