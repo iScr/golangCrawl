@@ -22,6 +22,9 @@ var (
 	downloaded map[string]bool = make(map[string]bool)
 	lockx                      = make(chan int, 1)
 	imgDir     string
+
+	baseUrl = "http://jandan.net"
+	partUrl = "ooxx"
 )
 
 func addDownloadImgUrl(url string) {
@@ -107,6 +110,25 @@ func parsingImgUrl(resp *http.Response) {
 		<-subChan
 	}
 
+	reg_n := regexp.MustCompile(`\s`)
+	bodystr := reg_n.ReplaceAllString(string(body), " ")
+
+	//查找匹配 <ol class="commentlist"><"/ol">
+	re1 := regexp.MustCompile(`<ol class="commentlist".*</ol>`)
+	li_comment_m := re1.Find([]byte(bodystr))
+
+	//查找匹配 <p><img src="xxx" /></p>
+	re_i := regexp.MustCompile(`<p><img src="(.+?)"`)
+	img_urls := re_i.FindAllSubmatch(li_comment_m, -1)
+
+	subChan2 := make(chan int, len(img_urls))
+	fmt.Println("算法2图片数量: ", len(img_urls))
+	for _, imageUrlTmp := range img_urls {
+		go downImg(string(imageUrlTmp[1]), subChan2)
+	}
+	for i := 0; i < len(img_urls); i++ {
+		<-subChan2
+	}
 }
 
 type ExampleExtender struct {
@@ -145,6 +167,44 @@ func (this *ExampleExtender) Filter(ctx *gocrawl.URLContext, isVisited bool) boo
 	return false
 }
 
+type jandanooxxExtender struct {
+	gocrawl.DefaultExtender
+}
+
+func (this *jandanooxxExtender) Visit(ctx *gocrawl.URLContext, res *http.Response, doc *goquery.Document) (interface{}, bool) {
+	fmt.Println("visit url: ", ctx.URL(), "state: ", ctx.State)
+	go parsingImgUrl(res)
+	i, _ := ctx.State.(int)
+	nextDepth := i - 1
+	if nextDepth <= 0 {
+		return nil, false
+	}
+
+	url := fmt.Sprintf("%s/%s/page-%d", baseUrl, partUrl, nextDepth)
+	// for _, u := range urls {
+	// 	links[u] = nextDepth
+	// }
+	links := make(map[string]interface{})
+	links[url] = nextDepth
+	return links, false
+}
+
+func (this *jandanooxxExtender) Filter(ctx *gocrawl.URLContext, isVisited bool) bool {
+	// if ctx.SourceURL() == nil {
+	// 	ctx.State = DEPTH
+	// 	return !isVisited
+	// }
+	// if ctx.State != nil {
+	// 	i, ok := ctx.State.(int)
+	// 	if ok && i > 0 {
+	// 		return !isVisited
+	// 	}
+	// } else {
+	// 	fmt.Println("ctx.state nil, ctx.sourceURL: ", ctx.SourceURL())
+	// }
+	return !isVisited
+}
+
 //copy from worker.go
 func processLinks(doc *goquery.Document) (result []*url.URL) {
 	urls := doc.Find("a[href]").Map(func(_ int, s *goquery.Selection) string {
@@ -169,11 +229,11 @@ func main() {
 	fmt.Println(os.Args[0])
 	fmt.Println(len(os.Args))
 	// return
-	opts := gocrawl.NewOptions(new(ExampleExtender))
+	opts := gocrawl.NewOptions(new(jandanooxxExtender))
 	opts.CrawlDelay = 0
 	opts.LogFlags = gocrawl.LogNone
 	opts.EnqueueChanBuffer = 10000
 	// opts.MaxVisits = 4
 	c := gocrawl.NewCrawlerWithOptions(opts)
-	c.Run(gocrawl.S{"http://pp.163.com/": DEPTH})
+	c.Run(gocrawl.S{"http://jandan.net/ooxx/page-1": 500})
 }
