@@ -52,16 +52,18 @@ func downImg(url string, chann chan int) {
 	addDownloadImgUrl(url)
 
 	resp, err := http.Get(url)
+
+	if err != nil {
+		fmt.Println("下载图片: ", url, "失败, 原因: ", err.Error())
+		return
+	}
+
 	delay := time.AfterFunc(3*time.Second, func() {
 		return
 	})
 
 	defer delay.Stop()
 
-	if err != nil {
-		fmt.Println("下载图片: ", url, "失败, 原因: ", err.Error())
-		return
-	}
 	defer resp.Body.Close()
 
 	if resp.ContentLength < 10000 {
@@ -73,7 +75,10 @@ func downImg(url string, chann chan int) {
 		return
 	}
 
-	f, _ := os.Create("./img/" + getName(url))
+	f, err := os.Create("./img/" + getName(url))
+	if err != nil {
+		return
+	}
 	defer f.Close()
 
 	f.Write(body)
