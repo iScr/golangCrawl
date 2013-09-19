@@ -25,6 +25,8 @@ var (
 
 	baseUrl = "http://jandan.net"
 	partUrl = "ooxx"
+
+	visitQuit = make(chan int, 10)
 )
 
 func addDownloadImgUrl(url string) {
@@ -58,7 +60,7 @@ func downImg(url string, chann chan int) {
 		return
 	}
 
-	delay := time.AfterFunc(3*time.Second, func() {
+	delay := time.AfterFunc(10*time.Second, func() {
 		return
 	})
 
@@ -86,8 +88,16 @@ func downImg(url string, chann chan int) {
 
 }
 
-func parsingImgUrl(resp *http.Response) {
+func parsingImgUrl(resp *http.Response, quit chan int) {
 	fmt.Println("解析图片链接, 来自: ", resp.Request.URL)
+
+	defer func() {
+		<-quit
+	}()
+
+	defer func() {
+		quit <- 1
+	}()
 
 	if resp == nil {
 		fmt.Println("resp 为空")
@@ -142,7 +152,8 @@ type ExampleExtender struct {
 
 func (this *ExampleExtender) Visit(ctx *gocrawl.URLContext, res *http.Response, doc *goquery.Document) (interface{}, bool) {
 	fmt.Println("visit url: ", ctx.URL(), "state: ", ctx.State)
-	go parsingImgUrl(res)
+	go parsingImgUrl(res, visitQuit)
+
 	urls := processLinks(doc)
 	links := make(map[*url.URL]interface{})
 	i, _ := ctx.State.(int)
@@ -178,10 +189,10 @@ type jandanooxxExtender struct {
 
 func (this *jandanooxxExtender) Visit(ctx *gocrawl.URLContext, res *http.Response, doc *goquery.Document) (interface{}, bool) {
 	fmt.Println("visit url: ", ctx.URL(), "state: ", ctx.State)
-	go parsingImgUrl(res)
+	go parsingImgUrl(res, visitQuit)
 	i, _ := ctx.State.(int)
 	nextDepth := i - 1
-	if nextDepth <= 0 {
+	if i <= 0 {
 		return nil, false
 	}
 
