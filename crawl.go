@@ -26,7 +26,7 @@ var (
 	baseUrl = "http://jandan.net"
 	partUrl = "ooxx"
 
-	visitQuit = make(chan int, 10)
+	visitQuit = make(chan int, 1)
 )
 
 func addDownloadImgUrl(url string) {
@@ -90,13 +90,10 @@ func downImg(url string, chann chan int) {
 
 func parsingImgUrl(resp *http.Response, quit chan int) {
 	fmt.Println("解析图片链接, 来自: ", resp.Request.URL)
+	quit <- 1
 
 	defer func() {
 		<-quit
-	}()
-
-	defer func() {
-		quit <- 1
 	}()
 
 	if resp == nil {
