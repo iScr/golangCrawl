@@ -28,6 +28,8 @@ var (
 
 	baseUrl = "http://jandan.net"
 	partUrl = "ooxx"
+
+	visitQuit = make(chan int, 1)
 )
 
 func addDownloadImgUrl(url string) {
@@ -66,6 +68,7 @@ func downImg(url string, chann chan int) {
 		fmt.Println("下载图片: ", url, "失败, 原因: ", err.Error())
 		return
 	}
+
 	defer resp.Body.Close()
 
 	if resp.ContentLength < 10000 {
@@ -94,6 +97,11 @@ func downImg(url string, chann chan int) {
 
 func parsingImgUrl(resp *http.Response, quit chan int) {
 	fmt.Println("解析图片链接, 来自: ", resp.Request.URL)
+	quit <- 1
+
+	defer func() {
+		<-quit
+	}()
 
 	if quit != nil {
 		defer func() {
@@ -148,13 +156,14 @@ func parsingImgUrl(resp *http.Response, quit chan int) {
 }
 
 type ExampleExtender struct {
-	gocrawl.DefaultExtender
+	*gocrawl.DefaultExtender
 }
 
 func (this *ExampleExtender) Visit(ctx *gocrawl.URLContext, res *http.Response, doc *goquery.Document) (interface{}, bool) {
 	fmt.Println("visit url: ", ctx.URL(), "state: ", ctx.State)
 
 	go parsingImgUrl(res, nil)
+
 	urls := processLinks(doc)
 	links := make(map[*url.URL]interface{})
 	i, _ := ctx.State.(int)
@@ -185,7 +194,7 @@ func (this *ExampleExtender) Filter(ctx *gocrawl.URLContext, isVisited bool) boo
 }
 
 type jandanooxxExtender struct {
-	gocrawl.DefaultExtender
+	*gocrawl.DefaultExtender
 }
 
 func (this *jandanooxxExtender) Visit(ctx *gocrawl.URLContext, res *http.Response, doc *goquery.Document) (interface{}, bool) {
