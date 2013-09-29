@@ -15,13 +15,16 @@ import (
 )
 
 const (
-	DEPTH = 5
+	MAXINDEX = 500
+	DEPTH    = 5
 )
 
 var (
 	downloaded map[string]bool = make(map[string]bool)
 	lockx                      = make(chan int, 1)
 	imgDir     string
+
+	par = make(chan int, 6)
 
 	baseUrl = "http://jandan.net"
 	partUrl = "ooxx"
@@ -52,7 +55,8 @@ func downImg(url string, chann chan int) {
 	addDownloadImgUrl(url)
 
 	resp, err := http.Get(url)
-	delay := time.AfterFunc(3*time.Second, func() {
+	delay := time.AfterFunc(10*time.Second, func() {
+		fmt.Println("超时 取消下载: ", url)
 		return
 	})
 
@@ -65,6 +69,7 @@ func downImg(url string, chann chan int) {
 	defer resp.Body.Close()
 
 	if resp.ContentLength < 10000 {
+		fmt.Println("图片过小. 取消下载")
 		return
 	}
 	body, err := ioutil.ReadAll(resp.Body)
@@ -73,7 +78,13 @@ func downImg(url string, chann chan int) {
 		return
 	}
 
-	f, _ := os.Create("./img/" + getName(url))
+	path := "./img/" + getName(url)
+
+	f, err := os.Create(path)
+	if err != nil {
+		fmt.Println("创建文件失败, path: ", path, "原因: ", err.Error())
+		return
+	}
 	defer f.Close()
 
 	f.Write(body)
@@ -81,9 +92,14 @@ func downImg(url string, chann chan int) {
 
 }
 
-func parsingImgUrl(resp *http.Response) {
+func parsingImgUrl(resp *http.Response, quit chan int) {
 	fmt.Println("解析图片链接, 来自: ", resp.Request.URL)
 
+	if quit != nil {
+		defer func() {
+			<-quit
+		}()
+	}
 	if resp == nil {
 		fmt.Println("resp 为空")
 	}
@@ -99,16 +115,16 @@ func parsingImgUrl(resp *http.Response) {
 		return
 	}
 
-	subChan := make(chan int, len(newstr))
-	fmt.Println("图片数量: ", len(newstr))
+	// subChan := make(chan int, len(newstr))
+	// fmt.Println("图片数量: ", len(newstr))
 
-	for i := 0; i < len(newstr); i++ {
-		go downImg(newstr[i], subChan)
-	}
+	// for i := 0; i < len(newstr); i++ {
+	// 	go downImg(newstr[i], subChan)
+	// }
 
-	for i := 0; i < len(newstr); i++ {
-		<-subChan
-	}
+	// for i := 0; i < len(newstr); i++ {
+	// 	<-subChan
+	// }
 
 	reg_n := regexp.MustCompile(`\s`)
 	bodystr := reg_n.ReplaceAllString(string(body), " ")
@@ -137,7 +153,8 @@ type ExampleExtender struct {
 
 func (this *ExampleExtender) Visit(ctx *gocrawl.URLContext, res *http.Response, doc *goquery.Document) (interface{}, bool) {
 	fmt.Println("visit url: ", ctx.URL(), "state: ", ctx.State)
-	go parsingImgUrl(res)
+
+	go parsingImgUrl(res, nil)
 	urls := processLinks(doc)
 	links := make(map[*url.URL]interface{})
 	i, _ := ctx.State.(int)
@@ -173,10 +190,11 @@ type jandanooxxExtender struct {
 
 func (this *jandanooxxExtender) Visit(ctx *gocrawl.URLContext, res *http.Response, doc *goquery.Document) (interface{}, bool) {
 	fmt.Println("visit url: ", ctx.URL(), "state: ", ctx.State)
-	go parsingImgUrl(res)
+	par <- 1
+	go parsingImgUrl(res, par)
 	i, _ := ctx.State.(int)
-	nextDepth := i - 1
-	if nextDepth <= 0 {
+	nextDepth := i + 1
+	if nextDepth > MAXINDEX {
 		return nil, false
 	}
 
@@ -235,5 +253,14 @@ func main() {
 	opts.EnqueueChanBuffer = 10000
 	// opts.MaxVisits = 4
 	c := gocrawl.NewCrawlerWithOptions(opts)
-	c.Run(gocrawl.S{"http://jandan.net/ooxx/page-1": 500})
+
+	for {
+		c.Run(gocrawl.S{"http://jandan.net/ooxx/page-1": 1})
+		delay := time.After(10 * time.Second)
+		<-delay
+	}
+}
+
+func loop() {
+
 }
