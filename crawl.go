@@ -144,7 +144,7 @@ func parsingImgUrl(resp *http.Response, quit chan int) {
 }
 
 type ExampleExtender struct {
-	gocrawl.DefaultExtender
+	*gocrawl.DefaultExtender
 }
 
 func (this *ExampleExtender) Visit(ctx *gocrawl.URLContext, res *http.Response, doc *goquery.Document) (interface{}, bool) {
@@ -181,7 +181,7 @@ func (this *ExampleExtender) Filter(ctx *gocrawl.URLContext, isVisited bool) boo
 }
 
 type jandanooxxExtender struct {
-	gocrawl.DefaultExtender
+	*gocrawl.DefaultExtender
 }
 
 func (this *jandanooxxExtender) Visit(ctx *gocrawl.URLContext, res *http.Response, doc *goquery.Document) (interface{}, bool) {
