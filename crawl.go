@@ -1,6 +1,7 @@
 package main
 
 import (
+	"extenders"
 	"fmt"
 	"github.com/PuerkitoBio/gocrawl"
 	"github.com/PuerkitoBio/goquery"
@@ -257,6 +258,7 @@ func main() {
 	fmt.Println(len(os.Args))
 	// return
 	opts := gocrawl.NewOptions(new(jandanooxxExtender))
+
 	opts.CrawlDelay = 0
 	opts.LogFlags = gocrawl.LogNone
 	opts.EnqueueChanBuffer = 10000
