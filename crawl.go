@@ -1,7 +1,6 @@
 package main
 
 import (
-	"extenders"
 	"fmt"
 	"github.com/PuerkitoBio/gocrawl"
 	"github.com/PuerkitoBio/goquery"
@@ -25,7 +24,7 @@ var (
 	lockx                      = make(chan int, 1)
 	imgDir     string
 
-	par = make(chan int, 6)
+	par = make(chan int, 20)
 
 	baseUrl = "http://jandan.net"
 	partUrl = "ooxx"
@@ -98,11 +97,6 @@ func downImg(url string, chann chan int) {
 
 func parsingImgUrl(resp *http.Response, quit chan int) {
 	fmt.Println("解析图片链接, 来自: ", resp.Request.URL)
-	quit <- 1
-
-	defer func() {
-		<-quit
-	}()
 
 	if quit != nil {
 		defer func() {
@@ -116,24 +110,6 @@ func parsingImgUrl(resp *http.Response, quit chan int) {
 	if err != nil {
 		fmt.Println("读取网页失败")
 	}
-	str := string(body)
-	re, _ := regexp.Compile("http://img\\S+?\\.jpg")
-	newstr := re.FindAllString(str, -1)
-
-	if len(newstr) == 0 {
-		return
-	}
-
-	// subChan := make(chan int, len(newstr))
-	// fmt.Println("图片数量: ", len(newstr))
-
-	// for i := 0; i < len(newstr); i++ {
-	// 	go downImg(newstr[i], subChan)
-	// }
-
-	// for i := 0; i < len(newstr); i++ {
-	// 	<-subChan
-	// }
 
 	reg_n := regexp.MustCompile(`\s`)
 	bodystr := reg_n.ReplaceAllString(string(body), " ")
@@ -267,7 +243,7 @@ func main() {
 
 	for {
 		c.Run(gocrawl.S{"http://jandan.net/ooxx/page-1": 1})
-		delay := time.After(10 * time.Second)
+		delay := time.After(5 * time.Minute)
 		<-delay
 	}
 }
