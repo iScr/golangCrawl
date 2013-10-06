@@ -179,8 +179,8 @@ func (this *jandanooxxExtender) Visit(ctx *gocrawl.URLContext, res *http.Respons
 	par <- 1
 	go parsingImgUrl(res, par)
 	i, _ := ctx.State.(int)
-	nextDepth := i + 1
-	if nextDepth > MAXINDEX {
+	nextDepth := i - 1
+	if nextDepth < 1 {
 		return nil, false
 	}
 
@@ -242,7 +242,7 @@ func main() {
 	c := gocrawl.NewCrawlerWithOptions(opts)
 
 	for {
-		c.Run(gocrawl.S{"http://jandan.net/ooxx/page-1": 1})
+		c.Run(gocrawl.S{"http://jandan.net/ooxx/page-955": 955})
 		delay := time.After(5 * time.Minute)
 		<-delay
 	}
